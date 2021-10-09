@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.annotation.UiThread
 import androidx.lifecycle.*
 import com.overplay.videoplayer.Resource
+import com.overplay.videoplayer.usecase.DistanceGetter
 import kotlinx.coroutines.*
 
 class PlayerViewModel : ViewModel() {
@@ -11,20 +12,29 @@ class PlayerViewModel : ViewModel() {
         private const val TAG = "PlayerViewModel"
     }
 
-    private val status: MutableLiveData<Resource<Unit, Unit>> = MutableLiveData()
-    private var job: Job = Job()
+    private val delayStatus: MutableLiveData<Resource<Unit, Unit>> = MutableLiveData()
+    private var jobDelay: Job = Job()
 
     @UiThread
     fun playMedia(): LiveData<Resource<Unit, Unit>> {
-        if(job.isActive) {
-            job.cancel()
+        if (jobDelay.isActive) {
+            jobDelay.cancel()
         }
 
-        job = CoroutineScope(Dispatchers.Default).launch {
+        jobDelay = CoroutineScope(Dispatchers.Default).launch {
             delay(5000)
-            status.postValue(Resource.Success(Unit, Unit))
+            delayStatus.postValue(Resource.Success(Unit, Unit))
         }
 
-        return status
+        return delayStatus
+    }
+
+    fun isOverTenMeters(distanceGetter: DistanceGetter): Boolean {
+        return distanceGetter.isOverTenMeters()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        jobDelay.cancel()
     }
 }

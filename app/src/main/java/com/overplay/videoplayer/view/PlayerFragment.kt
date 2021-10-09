@@ -1,25 +1,74 @@
 package com.overplay.videoplayer.view
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
+import android.content.*
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener
+import android.content.pm.PackageManager
+import android.location.Location
+import android.net.Uri
 import android.os.Bundle
+import android.os.IBinder
+import android.provider.Settings
+import android.util.Log
 import android.view.LayoutInflater
-import androidx.fragment.app.Fragment
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.util.Util
 import com.overplay.videoplayer.R
+import com.overplay.videoplayer.SharedPreferenceUtil
 import com.overplay.videoplayer.databinding.ActivityPlayerBinding
+import com.overplay.videoplayer.entity.LocationInfo
+import com.overplay.videoplayer.usecase.DistanceGetter
 import com.overplay.videoplayer.viewmodel.PlayerViewModel
 import org.koin.android.viewmodel.ext.android.viewModel
-import androidx.lifecycle.Observer
+
 
 class PlayerFragment : Fragment() {
     private val playerViewModel: PlayerViewModel by viewModel()
     private var player: SimpleExoPlayer? = null
     private var currentWindow = 0
     private var playbackPosition = 0L
+    private var previousLocationInfo: LocationInfo? = null
+
+    companion object {
+        private const val TAG = "PlayerFragment"
+        private const val REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE = 22
+    }
+
+    private var foregroundOnlyLocationService: ForegroundOnlyLocationService? = null
+    private var foregroundOnlyLocationServiceBound = false
+
+    private lateinit var foregroundOnlyBroadcastReceiver: ForegroundOnlyBroadcastReceiver
+    private lateinit var sharedPreferences: SharedPreferences
+
+    private var listener =
+        OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == SharedPreferenceUtil.KEY_FOREGROUND_ENABLED) {
+            }
+        }
+
+    private val foregroundOnlyServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            val binder = service as ForegroundOnlyLocationService.LocalBinder
+            foregroundOnlyLocationService = binder.service
+            foregroundOnlyLocationServiceBound = true
+            startGetLocation()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            foregroundOnlyLocationService = null
+            foregroundOnlyLocationServiceBound = false
+        }
+    }
 
     private val viewBinding by lazy(LazyThreadSafetyMode.NONE) {
         ActivityPlayerBinding.inflate(layoutInflater)
@@ -29,23 +78,134 @@ class PlayerFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
+
+        sharedPreferences =
+            requireContext().getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE
+            )
+
         return viewBinding.root
+    }
+
+    private fun foregroundPermissionApproved(): Boolean {
+        return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    }
+
+    private fun requestForegroundPermissions() {
+        val provideRationale = foregroundPermissionApproved()
+        if (provideRationale) {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Location Permission Needed")
+                .setMessage("This app needs the Location permission, please accept to use location functionality")
+                .setPositiveButton(
+                    "OK"
+                ) { _, _ ->
+                    //Prompt the user once explanation has been shown
+                    requestLocationPermission()
+                }
+                .create()
+                .show()
+        } else {
+            Log.d(TAG, "Request foreground only permission")
+            requestLocationPermission()
+        }
+    }
+
+    private fun requestLocationPermission() {
+        ActivityCompat.requestPermissions(
+            requireActivity(),
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ),
+            REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
+        )
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        Log.d(TAG, "onRequestPermissionResult")
+
+        when (requestCode) {
+            REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE -> when {
+                grantResults.isEmpty() ->
+                    // If user interaction was interrupted, the permission request
+                    // is cancelled and you receive empty arrays.
+                    Log.d(TAG, "User interaction was cancelled.")
+                grantResults[0] == PackageManager.PERMISSION_GRANTED ->
+                    // Permission was granted.
+                    foregroundOnlyLocationService?.subscribeToLocationUpdates()
+                else -> {
+                    AlertDialog.Builder(requireContext())
+                        .setTitle("Location Permission Needed")
+                        .setMessage("This app needs the Location permission, please accept to use location functionality")
+                        .setPositiveButton(
+                            "OK"
+                        ) { _, _ ->
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    activity?.let {
+                                        Uri.fromParts("package", it.packageName, null)
+                                    },
+                                ),
+                            )
+                        }
+                        .create()
+                        .show()
+                }
+            }
+        }
     }
 
     override fun onStart() {
         super.onStart()
         if (Util.SDK_INT >= 24) {
-            initializePlayer()
-            playMedia()
+            startPlay()
         }
+
+        sharedPreferences.registerOnSharedPreferenceChangeListener(listener)
+
+        val serviceIntent = Intent(requireActivity(), ForegroundOnlyLocationService::class.java)
+        requireActivity().bindService(
+            serviceIntent,
+            foregroundOnlyServiceConnection,
+            Context.BIND_AUTO_CREATE
+        )
     }
 
     override fun onResume() {
         super.onResume()
         hideSystemUi()
         if ((Util.SDK_INT < 24 || player == null)) {
-            initializePlayer()
-            playMedia()
+            startPlay()
+        }
+        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
+            foregroundOnlyBroadcastReceiver,
+            IntentFilter(
+                ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST
+            )
+        )
+    }
+
+    private fun startPlay() {
+        initializePlayer()
+        playMedia()
+    }
+
+    private fun startGetLocation() {
+        if (foregroundPermissionApproved()) {
+            foregroundOnlyLocationService?.subscribeToLocationUpdates()
+                ?: Log.d(TAG, "Service Not Bound")
+        } else {
+            requestForegroundPermissions()
         }
     }
 
@@ -60,11 +220,7 @@ class PlayerFragment : Fragment() {
     }
 
     private fun playMedia() {
-        player?.run {
-            playWhenReady = true
-            seekTo(currentWindow, playbackPosition)
-            prepare()
-        }
+        playFromDesignatedPosition(playbackPosition)
 
         playerViewModel.playMedia().apply {
             observe(viewLifecycleOwner, Observer {
@@ -74,6 +230,14 @@ class PlayerFragment : Fragment() {
                     seekTo(0)
                 }
             })
+        }
+    }
+
+    private fun playFromDesignatedPosition(startPosition: Long) {
+        player?.run {
+            playWhenReady = true
+            seekTo(currentWindow, startPosition)
+            prepare()
         }
     }
 
@@ -98,6 +262,9 @@ class PlayerFragment : Fragment() {
     }
 
     override fun onPause() {
+        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(
+            foregroundOnlyBroadcastReceiver
+        )
         super.onPause()
         if (Util.SDK_INT < 24) {
             releasePlayer()
@@ -106,9 +273,39 @@ class PlayerFragment : Fragment() {
 
 
     override fun onStop() {
+        if (foregroundOnlyLocationServiceBound) {
+            requireActivity().unbindService(foregroundOnlyServiceConnection)
+            foregroundOnlyLocationServiceBound = false
+        }
+        sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener)
+
         super.onStop()
         if (Util.SDK_INT >= 24) {
             releasePlayer()
+        }
+    }
+
+    private inner class ForegroundOnlyBroadcastReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val location = intent.getParcelableExtra<Location>(
+                ForegroundOnlyLocationService.EXTRA_LOCATION
+            )
+
+            if (location != null) {
+                Toast.makeText(context, location.toString(), Toast.LENGTH_SHORT).show()
+                Log.d(TAG, "Latitude =" + location.latitude.toString())
+                Log.d(TAG, "Longitude =" + location.longitude.toString())
+
+                val locationInfo = LocationInfo(location.latitude, location.longitude)
+
+                previousLocationInfo?.let {
+                    if (playerViewModel.isOverTenMeters(DistanceGetter(it, locationInfo))) {
+                        playFromDesignatedPosition(0)
+                    }
+                }
+
+                previousLocationInfo = locationInfo
+            }
         }
     }
 }
