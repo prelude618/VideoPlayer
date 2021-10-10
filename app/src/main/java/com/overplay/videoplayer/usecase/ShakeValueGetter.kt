@@ -1,20 +1,15 @@
 package com.overplay.videoplayer.usecase
 
-import android.R.attr.x
-import android.R.attr.y
-import android.hardware.SensorManager
 import android.util.Log
-import android.widget.Toast
 import com.overplay.videoplayer.entity.Coordinates
-import com.overplay.videoplayer.entity.LocationInfo
 import kotlin.math.abs
-
 
 class ShakeValueGetter() {
     companion object {
         private const val TAG = "ShakeValueGetter"
         private const val SHAKE_THRESHOLD = 2000
     }
+
     fun isOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, previousTime: Long): Boolean {
         return getSpeed(previousCoordinates, currentCoordinates, previousTime) > SHAKE_THRESHOLD
     }

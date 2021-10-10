@@ -30,6 +30,7 @@ import com.google.android.exoplayer2.util.Util
 import com.overplay.videoplayer.R
 import com.overplay.videoplayer.SharedPreferenceUtil
 import com.overplay.videoplayer.databinding.ActivityPlayerBinding
+import com.overplay.videoplayer.entity.Axis
 import com.overplay.videoplayer.entity.Coordinates
 import com.overplay.videoplayer.entity.LocationInfo
 import com.overplay.videoplayer.service.ForegroundOnlyLocationService
@@ -58,10 +59,10 @@ class PlayerFragment : Fragment(), SensorEventListener {
     private lateinit var sharedPreferences: SharedPreferences
 
     private var listener =
-        OnSharedPreferenceChangeListener { prefs, key ->
-            if (key == SharedPreferenceUtil.KEY_FOREGROUND_ENABLED) {
+            OnSharedPreferenceChangeListener { prefs, key ->
+                if (key == SharedPreferenceUtil.KEY_FOREGROUND_ENABLED) {
+                }
             }
-        }
 
     private val foregroundOnlyServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -92,10 +93,10 @@ class PlayerFragment : Fragment(), SensorEventListener {
         foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
 
         sharedPreferences =
-            requireContext().getSharedPreferences(
-                    getString(R.string.preference_file_key),
-                    Context.MODE_PRIVATE
-            )
+                requireContext().getSharedPreferences(
+                        getString(R.string.preference_file_key),
+                        Context.MODE_PRIVATE
+                )
 
         return viewBinding.root
     }
@@ -111,16 +112,16 @@ class PlayerFragment : Fragment(), SensorEventListener {
         val provideRationale = foregroundPermissionApproved()
         if (provideRationale) {
             AlertDialog.Builder(requireContext())
-                .setTitle("Location Permission Needed")
-                .setMessage("This app needs the Location permission, please accept to use location functionality")
-                .setPositiveButton(
-                        "OK"
-                ) { _, _ ->
-                    //Prompt the user once explanation has been shown
-                    requestLocationPermission()
-                }
-                .create()
-                .show()
+                    .setTitle("Location Permission Needed")
+                    .setMessage("This app needs the Location permission, please accept to use location functionality")
+                    .setPositiveButton(
+                            "OK"
+                    ) { _, _ ->
+                        //Prompt the user once explanation has been shown
+                        requestLocationPermission()
+                    }
+                    .create()
+                    .show()
         } else {
             Log.d(TAG, "Request foreground only permission")
             requestLocationPermission()
@@ -221,15 +222,15 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
         sensorManager.registerListener(
                 this,
-                sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),
-                SensorManager.SENSOR_DELAY_NORMAL
+                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                SensorManager.SENSOR_DELAY_UI
         )
     }
 
     private fun startGetLocation() {
         if (foregroundPermissionApproved()) {
             foregroundOnlyLocationService?.subscribeToLocationUpdates()
-                ?: Log.d(TAG, "Service Not Bound")
+                    ?: Log.d(TAG, "Service Not Bound")
         } else {
             requestForegroundPermissions()
         }
@@ -237,12 +238,12 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     private fun initializePlayer() {
         player = SimpleExoPlayer.Builder(requireContext())
-            .build()
-            .also { exoPlayer ->
-                viewBinding.videoView.player = exoPlayer
-                val mediaItem = MediaItem.fromUri(getString(R.string.overplay_mp4))
-                exoPlayer.setMediaItem(mediaItem)
-            }
+                .build()
+                .also { exoPlayer ->
+                    viewBinding.videoView.player = exoPlayer
+                    val mediaItem = MediaItem.fromUri(getString(R.string.overplay_mp4))
+                    exoPlayer.setMediaItem(mediaItem)
+                }
     }
 
     private fun playMedia() {
@@ -250,11 +251,11 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
         playerViewModel.playMedia().apply {
             observe(viewLifecycleOwner, Observer {
-//                player?.run {
-//                    playWhenReady = false
-//                    stop()
-//                    seekTo(0)
-//                }
+                player?.run {
+                    playWhenReady = false
+                    stop()
+                    seekTo(0)
+                }
             })
         }
     }
@@ -337,35 +338,81 @@ class PlayerFragment : Fragment(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        event?.let {
-            if (it.sensor.type === Sensor.TYPE_ACCELEROMETER) {
+        val curTime = System.currentTimeMillis()
+        val diffTime = curTime - previousTime
 
-               // Log.d(TAG, "Accelerometer sensed")
+        if (previousTime == 0L) {
+            previousTime = curTime
+        } else if (diffTime > 100) {
+            event?.let {
+                isAccelerometer(it, diffTime)
+                isGyroscope(it)
+            }
+            previousTime = curTime
+        }
+    }
 
-                val coordinates = Coordinates(it.values[0], it.values[1], it.values[2])
-                val curTime = System.currentTimeMillis()
-                val diffTime = curTime - previousTime
+    private fun isGyroscope(it: SensorEvent) {
+        if (it.sensor.type === Sensor.TYPE_GYROSCOPE) {
+            val axis = Axis(it.values[0], it.values[1], it.values[2])
 
-                if(previousTime == 0L) {
-                    previousTime = curTime
+            checkRollChange(axis)
+            Log.d(TAG, "Rotation axis.x =" + axis.x)
+
+            checkYawChange(axis)
+            Log.d(TAG, "Rotation axis.z =" + axis.z)
+        }
+    }
+
+    private fun checkYawChange(axis: Axis) {
+        when {
+            axis.z > 0.1 -> {
+                player?.run {
+                    seekTo(currentWindow, currentPosition + 1000)
+                    prepare()
                 }
-                else if(diffTime > 100) {
-                    previousCoordinates?.let {previousCoordinates ->
-                        isOverThreshold(previousCoordinates, coordinates, diffTime)
-                    }
-                    previousCoordinates = coordinates
-                    previousTime = curTime
+            }
+            axis.z < -0.1 -> {
+                player?.run {
+                    seekTo(currentWindow, currentPosition - 1000)
+                    prepare()
                 }
-            } else if (it.sensor.type === Sensor.TYPE_ROTATION_VECTOR) {
-
-            } else {
-
+            }
+            else -> {
             }
         }
     }
 
-    private fun isOverThreshold(previousCoordinates: Coordinates, coordinates: Coordinates, diffTime: Long) {
-        if (playerViewModel.isOverThreshold(previousCoordinates, coordinates, diffTime)) {
+    private fun checkRollChange(axis: Axis) {
+        when {
+            axis.x > 0.1 -> {
+                player?.run {
+                    increaseDeviceVolume()
+                }
+            }
+            axis.x < -0.1 -> {
+                player?.run {
+                    decreaseDeviceVolume()
+                }
+            }
+            else -> {
+            }
+        }
+    }
+
+    private fun isAccelerometer(it: SensorEvent, diffTime: Long) {
+        if (it.sensor.type === Sensor.TYPE_ACCELEROMETER) {
+            val coordinates = Coordinates(it.values[0], it.values[1], it.values[2])
+
+            previousCoordinates?.let { previousCoordinates ->
+                isShakeOverThreshold(previousCoordinates, coordinates, diffTime)
+            }
+            previousCoordinates = coordinates
+        }
+    }
+
+    private fun isShakeOverThreshold(previousCoordinates: Coordinates, coordinates: Coordinates, diffTime: Long) {
+        if (playerViewModel.isShakeOverThreshold(previousCoordinates, coordinates, diffTime)) {
             player?.let { simpleExoPlayer ->
                 simpleExoPlayer.playWhenReady = false
                 simpleExoPlayer.playbackState

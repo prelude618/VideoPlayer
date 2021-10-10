@@ -40,7 +40,7 @@ class PlayerViewModel(
         return distanceGetter.isOverTenMeters(previousLocation, currentLocation)
     }
 
-    fun isOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, diffTime: Long): Boolean {
+    fun isShakeOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, diffTime: Long): Boolean {
         return shakeValueGetter.isOverThreshold(previousCoordinates, currentCoordinates, diffTime)
     }
 
