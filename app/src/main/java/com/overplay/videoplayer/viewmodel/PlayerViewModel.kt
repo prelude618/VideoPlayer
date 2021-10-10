@@ -4,10 +4,16 @@ import android.util.Log
 import androidx.annotation.UiThread
 import androidx.lifecycle.*
 import com.overplay.videoplayer.Resource
+import com.overplay.videoplayer.entity.Coordinates
+import com.overplay.videoplayer.entity.LocationInfo
 import com.overplay.videoplayer.usecase.DistanceGetter
+import com.overplay.videoplayer.usecase.ShakeValueGetter
 import kotlinx.coroutines.*
 
-class PlayerViewModel : ViewModel() {
+class PlayerViewModel(
+        private val distanceGetter: DistanceGetter,
+        private val shakeValueGetter: ShakeValueGetter
+) : ViewModel() {
     companion object {
         private const val TAG = "PlayerViewModel"
     }
@@ -29,8 +35,13 @@ class PlayerViewModel : ViewModel() {
         return delayStatus
     }
 
-    fun isOverTenMeters(distanceGetter: DistanceGetter): Boolean {
-        return distanceGetter.isOverTenMeters()
+    fun isOverTenMeters(previousLocation: LocationInfo, currentLocation: LocationInfo): Boolean {
+        Log.d(TAG, "LocationInfo = ${currentLocation.latitude}, ${currentLocation.longitude}")
+        return distanceGetter.isOverTenMeters(previousLocation, currentLocation)
+    }
+
+    fun isOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, diffTime: Long): Boolean {
+        return shakeValueGetter.isOverThreshold(previousCoordinates, currentCoordinates, diffTime)
     }
 
     override fun onCleared() {

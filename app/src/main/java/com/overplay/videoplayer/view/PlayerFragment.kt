@@ -6,6 +6,10 @@ import android.app.AlertDialog
 import android.content.*
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.net.Uri
 import android.os.Bundle
@@ -26,18 +30,21 @@ import com.google.android.exoplayer2.util.Util
 import com.overplay.videoplayer.R
 import com.overplay.videoplayer.SharedPreferenceUtil
 import com.overplay.videoplayer.databinding.ActivityPlayerBinding
+import com.overplay.videoplayer.entity.Coordinates
 import com.overplay.videoplayer.entity.LocationInfo
-import com.overplay.videoplayer.usecase.DistanceGetter
+import com.overplay.videoplayer.service.ForegroundOnlyLocationService
 import com.overplay.videoplayer.viewmodel.PlayerViewModel
 import org.koin.android.viewmodel.ext.android.viewModel
 
 
-class PlayerFragment : Fragment() {
+class PlayerFragment : Fragment(), SensorEventListener {
     private val playerViewModel: PlayerViewModel by viewModel()
     private var player: SimpleExoPlayer? = null
     private var currentWindow = 0
     private var playbackPosition = 0L
     private var previousLocationInfo: LocationInfo? = null
+    private var previousCoordinates: Coordinates? = null
+    private var previousTime = 0L
 
     companion object {
         private const val TAG = "PlayerFragment"
@@ -74,16 +81,20 @@ class PlayerFragment : Fragment() {
         ActivityPlayerBinding.inflate(layoutInflater)
     }
 
+    private val sensorManager by lazy {
+        requireActivity().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+            inflater: LayoutInflater, container: ViewGroup?,
+            savedInstanceState: Bundle?
     ): View? {
         foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
 
         sharedPreferences =
             requireContext().getSharedPreferences(
-                getString(R.string.preference_file_key),
-                Context.MODE_PRIVATE
+                    getString(R.string.preference_file_key),
+                    Context.MODE_PRIVATE
             )
 
         return viewBinding.root
@@ -91,8 +102,8 @@ class PlayerFragment : Fragment() {
 
     private fun foregroundPermissionApproved(): Boolean {
         return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.ACCESS_FINE_LOCATION
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
         )
     }
 
@@ -103,7 +114,7 @@ class PlayerFragment : Fragment() {
                 .setTitle("Location Permission Needed")
                 .setMessage("This app needs the Location permission, please accept to use location functionality")
                 .setPositiveButton(
-                    "OK"
+                        "OK"
                 ) { _, _ ->
                     //Prompt the user once explanation has been shown
                     requestLocationPermission()
@@ -118,18 +129,18 @@ class PlayerFragment : Fragment() {
 
     private fun requestLocationPermission() {
         ActivityCompat.requestPermissions(
-            requireActivity(),
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-            ),
-            REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
+                requireActivity(),
+                arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                ),
+                REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
         )
     }
 
     override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
+            requestCode: Int,
+            permissions: Array<String>,
+            grantResults: IntArray
     ) {
         Log.d(TAG, "onRequestPermissionResult")
 
@@ -144,22 +155,22 @@ class PlayerFragment : Fragment() {
                     foregroundOnlyLocationService?.subscribeToLocationUpdates()
                 else -> {
                     AlertDialog.Builder(requireContext())
-                        .setTitle("Location Permission Needed")
-                        .setMessage("This app needs the Location permission, please accept to use location functionality")
-                        .setPositiveButton(
-                            "OK"
-                        ) { _, _ ->
-                            startActivity(
-                                Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    activity?.let {
-                                        Uri.fromParts("package", it.packageName, null)
-                                    },
-                                ),
-                            )
-                        }
-                        .create()
-                        .show()
+                            .setTitle("Location Permission Needed")
+                            .setMessage("This app needs the Location permission, please accept to use location functionality")
+                            .setPositiveButton(
+                                    "OK"
+                            ) { _, _ ->
+                                startActivity(
+                                        Intent(
+                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                activity?.let {
+                                                    Uri.fromParts("package", it.packageName, null)
+                                                },
+                                        ),
+                                )
+                            }
+                            .create()
+                            .show()
                 }
             }
         }
@@ -175,9 +186,9 @@ class PlayerFragment : Fragment() {
 
         val serviceIntent = Intent(requireActivity(), ForegroundOnlyLocationService::class.java)
         requireActivity().bindService(
-            serviceIntent,
-            foregroundOnlyServiceConnection,
-            Context.BIND_AUTO_CREATE
+                serviceIntent,
+                foregroundOnlyServiceConnection,
+                Context.BIND_AUTO_CREATE
         )
     }
 
@@ -188,16 +199,31 @@ class PlayerFragment : Fragment() {
             startPlay()
         }
         LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
-            foregroundOnlyBroadcastReceiver,
-            IntentFilter(
-                ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST
-            )
+                foregroundOnlyBroadcastReceiver,
+                IntentFilter(
+                        ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST
+                )
         )
     }
 
     private fun startPlay() {
         initializePlayer()
         playMedia()
+        registerSensor()
+    }
+
+    private fun registerSensor() {
+        sensorManager.registerListener(
+                this,
+                sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_NORMAL
+        )
+
+        sensorManager.registerListener(
+                this,
+                sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),
+                SensorManager.SENSOR_DELAY_NORMAL
+        )
     }
 
     private fun startGetLocation() {
@@ -224,11 +250,11 @@ class PlayerFragment : Fragment() {
 
         playerViewModel.playMedia().apply {
             observe(viewLifecycleOwner, Observer {
-                player?.run {
-                    playWhenReady = false
-                    stop()
-                    seekTo(0)
-                }
+//                player?.run {
+//                    playWhenReady = false
+//                    stop()
+//                    seekTo(0)
+//                }
             })
         }
     }
@@ -263,12 +289,13 @@ class PlayerFragment : Fragment() {
 
     override fun onPause() {
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(
-            foregroundOnlyBroadcastReceiver
+                foregroundOnlyBroadcastReceiver
         )
         super.onPause()
         if (Util.SDK_INT < 24) {
             releasePlayer()
         }
+        sensorManager.unregisterListener(this)
     }
 
 
@@ -288,7 +315,7 @@ class PlayerFragment : Fragment() {
     private inner class ForegroundOnlyBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val location = intent.getParcelableExtra<Location>(
-                ForegroundOnlyLocationService.EXTRA_LOCATION
+                    ForegroundOnlyLocationService.EXTRA_LOCATION
             )
 
             if (location != null) {
@@ -299,7 +326,7 @@ class PlayerFragment : Fragment() {
                 val locationInfo = LocationInfo(location.latitude, location.longitude)
 
                 previousLocationInfo?.let {
-                    if (playerViewModel.isOverTenMeters(DistanceGetter(it, locationInfo))) {
+                    if (playerViewModel.isOverTenMeters(it, locationInfo)) {
                         playFromDesignatedPosition(0)
                     }
                 }
@@ -307,5 +334,45 @@ class PlayerFragment : Fragment() {
                 previousLocationInfo = locationInfo
             }
         }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        event?.let {
+            if (it.sensor.type === Sensor.TYPE_ACCELEROMETER) {
+
+               // Log.d(TAG, "Accelerometer sensed")
+
+                val coordinates = Coordinates(it.values[0], it.values[1], it.values[2])
+                val curTime = System.currentTimeMillis()
+                val diffTime = curTime - previousTime
+
+                if(previousTime == 0L) {
+                    previousTime = curTime
+                }
+                else if(diffTime > 100) {
+                    previousCoordinates?.let {previousCoordinates ->
+                        isOverThreshold(previousCoordinates, coordinates, diffTime)
+                    }
+                    previousCoordinates = coordinates
+                    previousTime = curTime
+                }
+            } else if (it.sensor.type === Sensor.TYPE_ROTATION_VECTOR) {
+
+            } else {
+
+            }
+        }
+    }
+
+    private fun isOverThreshold(previousCoordinates: Coordinates, coordinates: Coordinates, diffTime: Long) {
+        if (playerViewModel.isOverThreshold(previousCoordinates, coordinates, diffTime)) {
+            player?.let { simpleExoPlayer ->
+                simpleExoPlayer.playWhenReady = false
+                simpleExoPlayer.playbackState
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
 }

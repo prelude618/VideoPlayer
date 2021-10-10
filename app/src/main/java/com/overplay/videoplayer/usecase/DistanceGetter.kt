@@ -6,15 +6,17 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-class DistanceGetter(
-    private val previousLocation: LocationInfo,
-    private val currentLocation: LocationInfo
-) {
-    fun isOverTenMeters(): Boolean {
-        return getDistance() > 10
+class DistanceGetter() {
+    companion object {
+        private const val TAG = "DistanceGetter"
+        private const val METER_THRESHOLD = 10
     }
 
-    private fun getDistance(): Int {
+    fun isOverTenMeters(previousLocation: LocationInfo, currentLocation: LocationInfo): Boolean {
+        return getDistance(previousLocation, currentLocation) > METER_THRESHOLD
+    }
+
+    private fun getDistance(previousLocation: LocationInfo, currentLocation: LocationInfo): Int {
         val radius = 6371
         val dLat = deg2rad(currentLocation.latitude - previousLocation.latitude)
         val dLon = deg2rad(currentLocation.longitude - previousLocation.longitude)
@@ -22,7 +24,12 @@ class DistanceGetter(
                 cos(deg2rad(previousLocation.latitude)) * cos(deg2rad(currentLocation.latitude)) *
                 sin(dLon / 2) * sin(dLon / 2)
 
-        return (2 * atan2(sqrt(a), sqrt(1 - a)) * radius * 1000).toInt()
+        val result: Double = (2 * atan2(sqrt(a), sqrt(1 - a)) * radius * 1000)
+        return if (result > Int.MAX_VALUE.toDouble()) {
+            METER_THRESHOLD + 1
+        } else {
+            result.toInt()
+        }
     }
 
     private fun deg2rad(deg: Double): Double {

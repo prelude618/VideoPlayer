@@ -25,7 +25,7 @@
         </activity>
 
         <service
-            android:name="com.overplay.videoplayer.view.ForegroundOnlyLocationService"
+            android:name="com.overplay.videoplayer.service.ForegroundOnlyLocationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="location" />

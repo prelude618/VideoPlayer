@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.overplay.videoplayer.view
+package com.overplay.videoplayer.service
 
 import android.annotation.SuppressLint
 import android.app.Notification
@@ -40,6 +40,7 @@ import com.google.android.gms.location.LocationServices
 import com.overplay.videoplayer.R
 import com.overplay.videoplayer.SharedPreferenceUtil
 import com.overplay.videoplayer.toText
+import com.overplay.videoplayer.view.PlayerActivity
 import java.util.concurrent.TimeUnit
 
 /**
