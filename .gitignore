@@ -8,3 +8,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+/shelf/
+/workspace.xml
+/gradle/wrapper/
