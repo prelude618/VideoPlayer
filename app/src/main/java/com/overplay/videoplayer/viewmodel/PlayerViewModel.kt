@@ -28,7 +28,7 @@ class PlayerViewModel(
         }
 
         jobDelay = CoroutineScope(Dispatchers.Default).launch {
-            delay(5000)
+            delay(4000)
             delayStatus.postValue(Resource.Success(Unit, Unit))
         }
 
