@@ -34,9 +34,12 @@ class ShakeValueGetterTest {
         val diffTime = 101L
 
         mockkStatic(Log::class)
-        every { Log.d(any(), any())} returns 0
+        every { Log.d(any(), any()) } returns 0
 
-        assertEquals(297, shakeValueGetter.getSpeed(previousCoordinate, currentCoordinate, diffTime))
+        assertEquals(
+            297,
+            shakeValueGetter.getSpeed(previousCoordinate, currentCoordinate, diffTime)
+        )
     }
 
     @Test
@@ -46,8 +49,11 @@ class ShakeValueGetterTest {
         val diffTime = 101L
 
         mockkStatic(Log::class)
-        every { Log.d(any(), any())} returns 0
+        every { Log.d(any(), any()) } returns 0
 
-        assertEquals(2001, shakeValueGetter.getSpeed(previousCoordinate, currentCoordinate, diffTime))
+        assertEquals(
+            2001,
+            shakeValueGetter.getSpeed(previousCoordinate, currentCoordinate, diffTime)
+        )
     }
 }

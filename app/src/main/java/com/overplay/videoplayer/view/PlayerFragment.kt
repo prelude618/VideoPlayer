@@ -58,10 +58,10 @@ class PlayerFragment : Fragment(), SensorEventListener {
     private lateinit var sharedPreferences: SharedPreferences
 
     private var listener =
-            OnSharedPreferenceChangeListener { prefs, key ->
-                if (key == SharedPreferenceUtil.KEY_FOREGROUND_ENABLED) {
-                }
+        OnSharedPreferenceChangeListener { prefs, key ->
+            if (key == SharedPreferenceUtil.KEY_FOREGROUND_ENABLED) {
             }
+        }
 
     private val foregroundOnlyServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -86,24 +86,24 @@ class PlayerFragment : Fragment(), SensorEventListener {
     }
 
     override fun onCreateView(
-            inflater: LayoutInflater, container: ViewGroup?,
-            savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
     ): View? {
         foregroundOnlyBroadcastReceiver = ForegroundOnlyBroadcastReceiver()
 
         sharedPreferences =
-                requireContext().getSharedPreferences(
-                        getString(R.string.preference_file_key),
-                        Context.MODE_PRIVATE
-                )
+            requireContext().getSharedPreferences(
+                getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE
+            )
 
         return viewBinding.root
     }
 
     private fun foregroundPermissionApproved(): Boolean {
         return PackageManager.PERMISSION_GRANTED == ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
+            requireContext(),
+            Manifest.permission.ACCESS_FINE_LOCATION
         )
     }
 
@@ -111,16 +111,16 @@ class PlayerFragment : Fragment(), SensorEventListener {
         val provideRationale = foregroundPermissionApproved()
         if (provideRationale) {
             AlertDialog.Builder(requireContext())
-                    .setTitle("Location Permission Needed")
-                    .setMessage("This app needs the Location permission, please accept to use location functionality")
-                    .setPositiveButton(
-                            "OK"
-                    ) { _, _ ->
-                        //Prompt the user once explanation has been shown
-                        requestLocationPermission()
-                    }
-                    .create()
-                    .show()
+                .setTitle("Location Permission Needed")
+                .setMessage("This app needs the Location permission, please accept to use location functionality")
+                .setPositiveButton(
+                    "OK"
+                ) { _, _ ->
+                    //Prompt the user once explanation has been shown
+                    requestLocationPermission()
+                }
+                .create()
+                .show()
         } else {
             Log.d(TAG, "Request foreground only permission")
             requestLocationPermission()
@@ -129,18 +129,18 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     private fun requestLocationPermission() {
         ActivityCompat.requestPermissions(
-                requireActivity(),
-                arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                ),
-                REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
+            requireActivity(),
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            ),
+            REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
         )
     }
 
     override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<String>,
-            grantResults: IntArray
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
     ) {
         Log.d(TAG, "onRequestPermissionResult")
 
@@ -155,22 +155,22 @@ class PlayerFragment : Fragment(), SensorEventListener {
                     foregroundOnlyLocationService?.subscribeToLocationUpdates()
                 else -> {
                     AlertDialog.Builder(requireContext())
-                            .setTitle("Location Permission Needed")
-                            .setMessage("This app needs the Location permission, please accept to use location functionality")
-                            .setPositiveButton(
-                                    "OK"
-                            ) { _, _ ->
-                                startActivity(
-                                        Intent(
-                                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                activity?.let {
-                                                    Uri.fromParts("package", it.packageName, null)
-                                                },
-                                        ),
-                                )
-                            }
-                            .create()
-                            .show()
+                        .setTitle("Location Permission Needed")
+                        .setMessage("This app needs the Location permission, please accept to use location functionality")
+                        .setPositiveButton(
+                            "OK"
+                        ) { _, _ ->
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    activity?.let {
+                                        Uri.fromParts("package", it.packageName, null)
+                                    },
+                                ),
+                            )
+                        }
+                        .create()
+                        .show()
                 }
             }
         }
@@ -186,9 +186,9 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
         val serviceIntent = Intent(requireActivity(), ForegroundOnlyLocationService::class.java)
         requireActivity().bindService(
-                serviceIntent,
-                foregroundOnlyServiceConnection,
-                Context.BIND_AUTO_CREATE
+            serviceIntent,
+            foregroundOnlyServiceConnection,
+            Context.BIND_AUTO_CREATE
         )
     }
 
@@ -199,10 +199,10 @@ class PlayerFragment : Fragment(), SensorEventListener {
             startPlay()
         }
         LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
-                foregroundOnlyBroadcastReceiver,
-                IntentFilter(
-                        ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST
-                )
+            foregroundOnlyBroadcastReceiver,
+            IntentFilter(
+                ForegroundOnlyLocationService.ACTION_FOREGROUND_ONLY_LOCATION_BROADCAST
+            )
         )
     }
 
@@ -214,22 +214,22 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     private fun registerSensor() {
         sensorManager.registerListener(
-                this,
-                sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                SensorManager.SENSOR_DELAY_NORMAL
+            this,
+            sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+            SensorManager.SENSOR_DELAY_NORMAL
         )
 
         sensorManager.registerListener(
-                this,
-                sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                SensorManager.SENSOR_DELAY_UI
+            this,
+            sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+            SensorManager.SENSOR_DELAY_UI
         )
     }
 
     private fun startGetLocation() {
         if (foregroundPermissionApproved()) {
             foregroundOnlyLocationService?.subscribeToLocationUpdates()
-                    ?: Log.d(TAG, "Service Not Bound")
+                ?: Log.d(TAG, "Service Not Bound")
         } else {
             requestForegroundPermissions()
         }
@@ -237,12 +237,12 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     private fun initializePlayer() {
         player = SimpleExoPlayer.Builder(requireContext())
-                .build()
-                .also { exoPlayer ->
-                    viewBinding.videoView.player = exoPlayer
-                    val mediaItem = MediaItem.fromUri(getString(R.string.overplay_mp4))
-                    exoPlayer.setMediaItem(mediaItem)
-                }
+            .build()
+            .also { exoPlayer ->
+                viewBinding.videoView.player = exoPlayer
+                val mediaItem = MediaItem.fromUri(getString(R.string.overplay_mp4))
+                exoPlayer.setMediaItem(mediaItem)
+            }
     }
 
     private fun playMedia() {
@@ -289,7 +289,7 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     override fun onPause() {
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(
-                foregroundOnlyBroadcastReceiver
+            foregroundOnlyBroadcastReceiver
         )
         super.onPause()
         if (Util.SDK_INT < 24) {
@@ -315,7 +315,7 @@ class PlayerFragment : Fragment(), SensorEventListener {
     private inner class ForegroundOnlyBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val location = intent.getParcelableExtra<Location>(
-                    ForegroundOnlyLocationService.EXTRA_LOCATION
+                ForegroundOnlyLocationService.EXTRA_LOCATION
             )
 
             if (location != null) {
@@ -409,7 +409,11 @@ class PlayerFragment : Fragment(), SensorEventListener {
         }
     }
 
-    private fun isShakeOverThreshold(previousCoordinate: Coordinate, coordinate: Coordinate, diffTime: Long) {
+    private fun isShakeOverThreshold(
+        previousCoordinate: Coordinate,
+        coordinate: Coordinate,
+        diffTime: Long
+    ) {
         if (playerViewModel.isShakeOverThreshold(previousCoordinate, coordinate, diffTime)) {
             player?.let { simpleExoPlayer ->
                 simpleExoPlayer.playWhenReady = false

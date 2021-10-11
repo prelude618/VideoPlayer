@@ -11,8 +11,8 @@ import com.overplay.videoplayer.usecase.ShakeValueGetter
 import kotlinx.coroutines.*
 
 class PlayerViewModel(
-        private val distanceGetter: DistanceGetter,
-        private val shakeValueGetter: ShakeValueGetter
+    private val distanceGetter: DistanceGetter,
+    private val shakeValueGetter: ShakeValueGetter
 ) : ViewModel() {
     companion object {
         private const val TAG = "PlayerViewModel"
@@ -40,7 +40,11 @@ class PlayerViewModel(
         return distanceGetter.isOverTenMeters(previousLocation, currentLocation)
     }
 
-    fun isShakeOverThreshold(previousCoordinate: Coordinate, currentCoordinate: Coordinate, diffTime: Long): Boolean {
+    fun isShakeOverThreshold(
+        previousCoordinate: Coordinate,
+        currentCoordinate: Coordinate,
+        diffTime: Long
+    ): Boolean {
         return shakeValueGetter.isOverThreshold(previousCoordinate, currentCoordinate, diffTime)
     }
 
