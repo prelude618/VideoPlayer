@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.annotation.UiThread
 import androidx.lifecycle.*
 import com.overplay.videoplayer.Resource
-import com.overplay.videoplayer.entity.Coordinates
+import com.overplay.videoplayer.entity.Coordinate
 import com.overplay.videoplayer.entity.LocationInfo
 import com.overplay.videoplayer.usecase.DistanceGetter
 import com.overplay.videoplayer.usecase.ShakeValueGetter
@@ -40,8 +40,8 @@ class PlayerViewModel(
         return distanceGetter.isOverTenMeters(previousLocation, currentLocation)
     }
 
-    fun isShakeOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, diffTime: Long): Boolean {
-        return shakeValueGetter.isOverThreshold(previousCoordinates, currentCoordinates, diffTime)
+    fun isShakeOverThreshold(previousCoordinate: Coordinate, currentCoordinate: Coordinate, diffTime: Long): Boolean {
+        return shakeValueGetter.isOverThreshold(previousCoordinate, currentCoordinate, diffTime)
     }
 
     override fun onCleared() {

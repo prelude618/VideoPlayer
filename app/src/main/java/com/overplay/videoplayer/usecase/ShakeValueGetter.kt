@@ -1,7 +1,8 @@
 package com.overplay.videoplayer.usecase
 
 import android.util.Log
-import com.overplay.videoplayer.entity.Coordinates
+import androidx.annotation.VisibleForTesting
+import com.overplay.videoplayer.entity.Coordinate
 import kotlin.math.abs
 
 class ShakeValueGetter() {
@@ -10,15 +11,16 @@ class ShakeValueGetter() {
         private const val SHAKE_THRESHOLD = 2000
     }
 
-    fun isOverThreshold(previousCoordinates: Coordinates, currentCoordinates: Coordinates, previousTime: Long): Boolean {
-        return getSpeed(previousCoordinates, currentCoordinates, previousTime) > SHAKE_THRESHOLD
+    fun isOverThreshold(previousCoordinate: Coordinate, currentCoordinate: Coordinate, previousTime: Long): Boolean {
+        return getSpeed(previousCoordinate, currentCoordinate, previousTime) > SHAKE_THRESHOLD
     }
 
-    private fun getSpeed(previousCoordinates: Coordinates, currentCoordinates: Coordinates, diffTime: Long): Int {
-        val speed: Float = abs(currentCoordinates.x + currentCoordinates.y + currentCoordinates.z
-                - previousCoordinates.x - previousCoordinates.y - previousCoordinates.z) / diffTime * 10000
+    @VisibleForTesting
+    fun getSpeed(previousCoordinate: Coordinate, currentCoordinate: Coordinate, diffTime: Long): Int {
+        val speed: Float = abs(currentCoordinate.x + currentCoordinate.y + currentCoordinate.z
+                - previousCoordinate.x - previousCoordinate.y - previousCoordinate.z) / diffTime * 10000
         Log.d(TAG, "speed = $speed")
-        return if (speed > Int.MAX_VALUE.toDouble()) {
+        return if (speed > Int.MAX_VALUE.toFloat()) {
             SHAKE_THRESHOLD + 1
         } else {
             speed.toInt()

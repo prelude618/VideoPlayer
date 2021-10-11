@@ -19,7 +19,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Observer
@@ -31,7 +30,7 @@ import com.overplay.videoplayer.R
 import com.overplay.videoplayer.SharedPreferenceUtil
 import com.overplay.videoplayer.databinding.ActivityPlayerBinding
 import com.overplay.videoplayer.entity.Axis
-import com.overplay.videoplayer.entity.Coordinates
+import com.overplay.videoplayer.entity.Coordinate
 import com.overplay.videoplayer.entity.LocationInfo
 import com.overplay.videoplayer.service.ForegroundOnlyLocationService
 import com.overplay.videoplayer.viewmodel.PlayerViewModel
@@ -44,7 +43,7 @@ class PlayerFragment : Fragment(), SensorEventListener {
     private var currentWindow = 0
     private var playbackPosition = 0L
     private var previousLocationInfo: LocationInfo? = null
-    private var previousCoordinates: Coordinates? = null
+    private var previousCoordinate: Coordinate? = null
     private var previousTime = 0L
 
     companion object {
@@ -320,7 +319,6 @@ class PlayerFragment : Fragment(), SensorEventListener {
             )
 
             if (location != null) {
-                Toast.makeText(context, location.toString(), Toast.LENGTH_SHORT).show()
                 Log.d(TAG, "Latitude =" + location.latitude.toString())
                 Log.d(TAG, "Longitude =" + location.longitude.toString())
 
@@ -402,17 +400,17 @@ class PlayerFragment : Fragment(), SensorEventListener {
 
     private fun isAccelerometer(it: SensorEvent, diffTime: Long) {
         if (it.sensor.type === Sensor.TYPE_ACCELEROMETER) {
-            val coordinates = Coordinates(it.values[0], it.values[1], it.values[2])
+            val coordinates = Coordinate(it.values[0], it.values[1], it.values[2])
 
-            previousCoordinates?.let { previousCoordinates ->
+            previousCoordinate?.let { previousCoordinates ->
                 isShakeOverThreshold(previousCoordinates, coordinates, diffTime)
             }
-            previousCoordinates = coordinates
+            previousCoordinate = coordinates
         }
     }
 
-    private fun isShakeOverThreshold(previousCoordinates: Coordinates, coordinates: Coordinates, diffTime: Long) {
-        if (playerViewModel.isShakeOverThreshold(previousCoordinates, coordinates, diffTime)) {
+    private fun isShakeOverThreshold(previousCoordinate: Coordinate, coordinate: Coordinate, diffTime: Long) {
+        if (playerViewModel.isShakeOverThreshold(previousCoordinate, coordinate, diffTime)) {
             player?.let { simpleExoPlayer ->
                 simpleExoPlayer.playWhenReady = false
                 simpleExoPlayer.playbackState
